@@ -60,16 +60,21 @@ uploaded_file = st.file_uploader("Upload CSV File", type="csv")
 
 if uploaded_file:
     df = pd.read_csv(uploaded_file)
-    st.write("🔍 Preview of Uploaded Data")
-    st.dataframe(df.head())
+    st.markdown("📝 **Edit Your Dataset (Optional)**")
+    edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True)
+    st.caption("You can directly edit cells, add rows, or fix typos here.")
+
+    if st.checkbox("⬇️ Allow download of edited CSV"):
+        csv = edited_df.to_csv(index=False).encode('utf-8')
+        st.download_button("Download Edited CSV", data=csv, file_name="edited_dataset.csv", mime='text/csv')
 
     columns = df.columns.tolist()
     target_col = st.selectbox("🎯 Select Target Column", columns)
     feature_cols = st.multiselect("🧩 Select Feature Columns", [col for col in columns if col != target_col], default=[col for col in columns if col != target_col])
 
     if st.button("Train & Predict"):
-        X = df[feature_cols].astype(str).values
-        y = df[target_col].astype(str).values
+        X = edited_df[feature_cols].astype(str).values
+        y = edited_df[target_col].astype(str).values
 
         # Optional custom priors
         unique_classes = np.unique(y)
