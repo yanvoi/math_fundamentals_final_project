@@ -107,6 +107,35 @@ if uploaded_file:
         plt.xlabel("Class")
         plt.ylabel("Sample Index")
         st.pyplot(fig)
+        
+        # Class distribution
+        st.markdown("📊 Class Distribution in Dataset")
+        class_counts = pd.Series(y).value_counts()
+        fig1, ax1 = plt.subplots()
+        sns.barplot(x=class_counts.index, y=class_counts.values, palette='Set2', ax=ax1)
+        ax1.set_xlabel("Class")
+        ax1.set_ylabel("Count")
+        ax1.set_title("Original Class Distribution")
+        st.pyplot(fig1)
+
+        # Prediction accuracy by class
+        st.markdown("✅ Prediction Accuracy by Class")
+        accuracy_by_class = results_df.groupby('True Label').apply(
+            lambda g: (g['True Label'] == g['Predicted Label']).sum() / len(g)
+        )
+        fig2, ax2 = plt.subplots()
+        sns.barplot(x=accuracy_by_class.index, y=accuracy_by_class.values, palette='Set1', ax=ax2)
+        ax2.set_ylim(0, 1)
+        ax2.set_ylabel("Accuracy")
+        ax2.set_title("Per-Class Accuracy")
+        st.pyplot(fig2)
+
+        # Confusion matrix
+        st.markdown("🔁 Confusion Matrix")
+        confusion = pd.crosstab(results_df['True Label'], results_df['Predicted Label'], rownames=['Actual'], colnames=['Predicted'], normalize='index')
+        fig3, ax3 = plt.subplots()
+        sns.heatmap(confusion, annot=True, fmt=".2f", cmap='Blues', ax=ax3)
+        st.pyplot(fig3)
 
         # Misclassification highlight
         wrong_preds = results_df[results_df['True Label'] != results_df['Predicted Label']]
