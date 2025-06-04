@@ -50,6 +50,7 @@ class NaiveBayesDiscrete:
 
         return np.array(predictions), posteriors
 
+
 # --- Streamlit UI ---
 st.set_page_config(page_title="Naive Bayes Discrete Classifier", layout="centered")
 
@@ -68,41 +69,58 @@ if uploaded_file:
         csv = edited_df.to_csv(index=False).encode('utf-8')
         st.download_button("Download Edited CSV", data=csv, file_name="edited_dataset.csv", mime='text/csv')
 
-    columns = df.columns.tolist()
+    columns = edited_df.columns.tolist()
     target_col = st.selectbox("🎯 Select Target Column", columns)
     feature_cols = st.multiselect("🧩 Select Feature Columns", [col for col in columns if col != target_col], default=[col for col in columns if col != target_col])
 
-    if st.button("Train & Predict"):
-        X = edited_df[feature_cols].astype(str).values
-        y = edited_df[target_col].astype(str).values
+    if target_col and feature_cols:
+        y_vals = edited_df[target_col].astype(str).values
+        unique_classes = np.unique(y_vals)
 
-        # Optional custom priors
-        unique_classes = np.unique(y)
         st.markdown("🧮 Customize Class Priors (Optional)")
-        class_priors = {}
-        total_weight = 0
         for cls in unique_classes:
-            val = st.number_input(f"Prior for class '{cls}'", min_value=0.0, max_value=1.0, value=1.0 / len(unique_classes), step=0.01)
-            class_priors[cls] = val
-            total_weight += val
-        class_priors = {cls: val / total_weight for cls, val in class_priors.items()}
+            st.number_input(
+                f"Prior for class '{cls}'",
+                min_value=0.0,
+                max_value=1.0,
+                value=1.0 / len(unique_classes),
+                step=0.01,
+                key=f"prior_{cls}"
+            )
 
-        model = NaiveBayesDiscrete(class_priors)
-        model.fit(X, y)
-        preds, posteriors = model.predict(X)
+        if st.button("Train & Predict"):
+            X = edited_df[feature_cols].astype(str).values
+            y = y_vals
 
-        results_df = pd.DataFrame(posteriors)
-        results_df['True Label'] = y
-        results_df['Predicted Label'] = preds
-        results_df.index.name = 'Sample'
+            class_priors_raw = {cls: st.session_state[f"prior_{cls}"] for cls in unique_classes}
+            total = sum(class_priors_raw.values())
+            class_priors = {cls: val / total for cls, val in class_priors_raw.items()}
+
+            model = NaiveBayesDiscrete(class_priors)
+            model.fit(X, y)
+            preds, posteriors = model.predict(X)
+
+            results_df = pd.DataFrame(posteriors)
+            results_df['True Label'] = y
+            results_df['Predicted Label'] = preds
+            results_df.index.name = 'Sample'
+
+            st.session_state["model"] = model
+            st.session_state["results_df"] = results_df
+            st.session_state["y"] = y
+
+    # --- Display Results ---
+    if "results_df" in st.session_state:
+        results_df = st.session_state["results_df"]
+        y = st.session_state["y"]
 
         st.success("✅ Prediction Complete!")
         st.write("📊 Results Table")
         st.dataframe(results_df)
 
-        # Heatmap
+        # Posterior heatmap
         st.markdown("📈 Posterior Probability Heatmap")
-        fig, ax = plt.subplots(figsize=(10, len(results_df)*0.5))
+        fig, ax = plt.subplots(figsize=(10, len(results_df) * 0.5))
         sns.heatmap(results_df.drop(columns=['True Label', 'Predicted Label']), annot=True, cmap='YlGnBu', ax=ax)
         plt.xlabel("Class")
         plt.ylabel("Sample Index")
@@ -118,7 +136,7 @@ if uploaded_file:
         ax1.set_title("Original Class Distribution")
         st.pyplot(fig1)
 
-        # Prediction accuracy by class
+        # Accuracy by class
         st.markdown("✅ Prediction Accuracy by Class")
         accuracy_by_class = results_df.groupby('True Label').apply(
             lambda g: (g['True Label'] == g['Predicted Label']).sum() / len(g)
@@ -136,8 +154,8 @@ if uploaded_file:
         fig3, ax3 = plt.subplots()
         sns.heatmap(confusion, annot=True, fmt=".2f", cmap='Blues', ax=ax3)
         st.pyplot(fig3)
-
-        # Misclassification highlight
+        
+        # Misclassification table
         wrong_preds = results_df[results_df['True Label'] != results_df['Predicted Label']]
         if not wrong_preds.empty:
             st.warning("⚠️ Misclassified Samples")
