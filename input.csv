@@ -7,3 +7,5 @@ rainy,cool,normal,false,yes
 rainy,cool,normal,true,no
 overcast,cool,normal,true,yes
 sunny,mild,high,false,no
+sunny,mild,high,true,yes
+overcast,hot,high,true,no
